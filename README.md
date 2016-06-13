@@ -1,2 +1,2 @@
-# Victor Dynamixel Library
+# rmelo19 Dynamixel Library
 A set of programs that interfaces with the Dynamixel motors and soem useful libraries.
