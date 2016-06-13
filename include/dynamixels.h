@@ -8,6 +8,10 @@
 #ifndef DYNAMIXELS_H
 #define DYNAMIXELS_H
 
+// switching between servo versions
+#define XM430
+
+#include <dynamixelsDefs.h>
 #include <dynamixel_sdk.h>                                  // Uses Dynamixel SDK library
 #ifdef __linux__
 #include <unistd.h>
@@ -19,39 +23,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#endif
-
-// switching between servo versions
-#define XM430
-
-#ifdef XM430
-// ADDRESSES
-#define ADDR_ID                         7
-#define ADDR_BAUD_RATE                  8
-
-#define ADDR_MAX_VOLTAGE                32
-#define ADDR_MIN_VOLTAGE                34
-#define ADDR_PWM_LIMIT	                36
-
-#define ADDR_PRO_TORQUE_ENABLE          64                 // Control table address is different in Dynamixel model
-#define ADDR_STATUS_LED					65
-
-#define ADDR_VELOCITY_I_GAIN			76
-#define ADDR_VELOCITY_P_GAIN			78
-#define ADDR_VELOCITY_D_GAIN			80
-#define ADDR_POSITION_I_GAIN			82
-#define ADDR_POSITION_P_GAIN			84
-
-#define ADDR_GOAL_CURRENT               102
-#define ADDR_GOAL_VELOCITY 			    104
-
-#define ADDR_GOAL_POSITION          116
-
-
-#define ADDR_PRESENT_POSITION       132
-
-
-
 #endif
 
 // Protocol version

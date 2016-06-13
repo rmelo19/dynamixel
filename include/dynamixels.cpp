@@ -121,6 +121,11 @@ void dynamixels::printInfo(int info)
   			printf(" %d", ID_array[i])
   		}
 	}
+	
+	if (info == HEADER_INFO)
+	{
+		
+	}
 }
 
 //#################################################################

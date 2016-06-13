@@ -4,7 +4,7 @@
  *  Created on: 2016. 6. 9. 
  *      Author: Rodrigo Marques
  */
-
+ 
 #include <dynamixels.h>
 
 int main(int argc, char* argv[])
