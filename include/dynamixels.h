@@ -9,7 +9,11 @@
 #define DYNAMIXELS_H
 
 // switching between servo versions
-#define XM430
+// #define XM430
+// #define MX28
+
+// Protocol version
+#define PROTOCOL_VERSION                1                 // See which protocol version is used in the Dynamixel
 
 #include <dynamixelsDefs.h>
 #include <dynamixel_sdk.h>                                  // Uses Dynamixel SDK library
@@ -25,31 +29,6 @@
 #include <stdio.h>
 #endif
 
-// Protocol version
-#define PROTOCOL_VERSION                2.0                 // See which protocol version is used in the Dynamixel
-
-// Default setting
-#define BAUDRATE                        1000000
-#define DEVICENAME                      "/dev/ttyUSB0"      // Check which port is being used on your controller ex) Windows: "COM1"   Linux: "/dev/ttyUSB0"
-#define TORQUE_ENABLE                   1                   // Value for enabling the torque
-#define TORQUE_DISABLE                  0                   // Value for disabling the torque
-
-
-#define DXL_MINIMUM_POSITION_VALUE      0                   // Dynamixel will rotate between this value
-#define DXL_MAXIMUM_POSITION_VALUE      4095                // and this value (note that the Dynamixel would not move when the position value is out of movable range. Check e-manual about the range of the Dynamixel you use.)
-#define DXL_MOVING_STATUS_THRESHOLD     20                  // Dynamixel moving status threshold
-
-// GENERAL VARIABLES
-#define ESC_ASCII_VALUE                 0x1b
-#define MAXIMUM_NUMBER_DYNAMIXELS       10
-
-// PRINTING INFO
-#define BAUDRATE_INFO                   1
-#define ID_ARRAY_INFO                   2
-#define POSITION_INFO                   3
-#define HEADER_INFO                     4
-
-
 
 //#######################################################################################
 // DYNAMIXEL CLASS
@@ -61,21 +40,38 @@ class dynamixels
         dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int desired_baudrate);
 		~dynamixels();
 
+        dynamixel::PortHandler *dxl_portHandler;
+        dynamixel::PacketHandler *dxl_packetHandler;
+
+
+
         uint8_t ID_array[MAXIMUM_NUMBER_DYNAMIXELS];
-        uint32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
         uint8_t firmware[MAXIMUM_NUMBER_DYNAMIXELS];
-        uint8_t protocol[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint8_t operatingMode[MAXIMUM_NUMBER_DYNAMIXELS];
+       
+        #if PROTOCOL_VERSION == 2
+            uint32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
+            uint8_t  protocol[MAXIMUM_NUMBER_DYNAMIXELS];
+            uint32_t minPositionLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+            uint32_t maxPositionLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+            uint32_t readPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index);
+
+        #else
+            uint16_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
+            uint16_t readPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index);
+        #endif
 
         int qtdDyn; // dynamixels quantity
 
         void enableTorqueALL(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
         void disableTorqueALL(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
+        void changeMode(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, uint8_t desired_mode);
         int searchDynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
         int searchDynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int baudrate);
         void printInfo(int info);
-        void setPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index, int desired_position);
-        int32_t readPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index);
-
+        void setPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index, uint32_t desired_position);
+        void setPositionALL(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, uint32_t desired_position);
+        
     private:
         int baudrate;
 	
