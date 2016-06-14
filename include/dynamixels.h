@@ -58,20 +58,26 @@ class dynamixels
 {
 	public:
 		dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
+        dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int desired_baudrate);
 		~dynamixels();
 
-    // dynamixel::PortHandler *portHandler;
-    // dynamixel::PacketHandler *packetHandler;
-    int ID_array[MAXIMUM_NUMBER_DYNAMIXELS];
-    int32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
-    int baudrate = BAUDRATE;
-    int qtdDyn = 0; // dynamixels quantity
+        uint8_t ID_array[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint8_t firmware[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint8_t protocol[MAXIMUM_NUMBER_DYNAMIXELS];
 
-    void enableTorqueALL(void);
-    int searchDynamixels(int baudrate);
-    void printInfo(int info);
-    void setPosition(int index);
-    int32_t dynamixels::readPosition(int index)
+        int qtdDyn; // dynamixels quantity
+
+        void enableTorqueALL(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
+        void disableTorqueALL(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
+        int searchDynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
+        int searchDynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int baudrate);
+        void printInfo(int info);
+        void setPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index, int desired_position);
+        int32_t readPosition(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int index);
+
+    private:
+        int baudrate;
 	
 };
 

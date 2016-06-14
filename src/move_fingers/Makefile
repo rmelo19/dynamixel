@@ -43,7 +43,7 @@ FORMAT      = -m64
 #---------------------------------------------------------------------
 # Core components (all of these are likely going to be needed)
 #---------------------------------------------------------------------
-INCLUDES   += -I$(DIR_DXL)include
+INCLUDES   += -I $(DIR_DXL)DynamixelSDK/c++/include -I $(DIR_DXL)include
 LIBRARIES  += -ldxl_x64_cpp
 LIBRARIES  += -lrt
 
@@ -56,7 +56,7 @@ SOURCES = move_fingers.cpp ../../include/dynamixels.cpp
 OBJECTS  = $(addsuffix .o,$(addprefix $(DIR_OBJS)/,$(basename $(notdir $(SOURCES)))))
 #OBJETCS += *** ADDITIONAL STATIC LIBRARIES GO HERE ***
 
-DEPS = ../../include/dynamixel_sdk.h ../../include/dynamixels.h
+DEPS = ../../DynamixelSDK/c++/include/dynamixel_sdk.h ../../include/dynamixels.h
 
 #---------------------------------------------------------------------
 # Compiling Rules

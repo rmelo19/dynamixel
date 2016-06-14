@@ -1,5 +1,6 @@
 #ifndef DYNAMIXELSDEFS_H
 #define DYNAMIXELSDEFS_H
+#endif
 
 #ifdef XM430
 // ADDRESSES
@@ -24,7 +25,7 @@
 #define ADDR_MAX_POSITION_LIMIT			48
 #define ADDR_MIN_POSITION_LIMIT			52
 #define ADDR_SHUTDOWN					63
-#define ADDR_PRO_TORQUE_ENABLE          64                 // Control table address is different in Dynamixel model
+#define ADDR_TORQUE_ENABLE          64                 // Control table address is different in Dynamixel model
 #define ADDR_LED						65
 #define ADDR_STATUS_RETURN_LEVEL 		68
 #define ADDR_REGISTERED_INSTRUCTION		69
