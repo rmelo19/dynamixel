@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
   dynamixel::PacketHandler *packetHandler = dynamixel::PacketHandler::getPacketHandler(PROTOCOL_VERSION);
 
 
-  dynamixels dxls(portHandler, packetHandler, BAUDRATE);
+  dynamixels dxls(portHandler, packetHandler);
   dxls.printInfo(HEADER_INFO);
   // dxls.enableTorqueALL(portHandler, packetHandler);
 
@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
 
   // zeroing
   printf("Zeroing position\n");
-  dxls.setPositionALL(portHandler, packetHandler, DXL_MINIMUM_POSITION_VALUE);
+  dxls.setPositionALL(DXL_MINIMUM_POSITION_VALUE);
 
   // // dxls.setPosition(portHandler, packetHandler, index, dxl_goal_position[1]);
   // // dxls.printInfo(MOVING_INFO);
@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 
 
   // printf("Maximizing position\n");
-  // dxls.setPositionALL(portHandler, packetHandler, DXL_MAXIMUM_POSITION_VALUE);
+  // dxls.setPositionALL(DXL_MAXIMUM_POSITION_VALUE);
 
   // dxls.setPosition(portHandler, packetHandler, index, dxl_goal_position[1]);
   // dxls.printInfo(MOVING_INFO);
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
 
   // dxls.printInfo(POSITION_INFO);
 
-  // dxls.disableTorqueALL(portHandler, packetHandler);
+  // dxls.disableTorqueALL();
   // Close port
   portHandler->closePort();
 
