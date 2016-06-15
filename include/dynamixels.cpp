@@ -5,16 +5,29 @@
 // dynamixels::dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int desired_baudrate = BAUDRATE)
 //
 //#################################################################
-dynamixels::dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int desired_baudrate)
+dynamixels::dynamixels(char* deviceName, int protocolVersion, int desired_baudrate)
 {
+	// Initialize PortHandler instance
+	// Set the port path
+	// Get methods and members of PortHandlerLinux or PortHandlerWindows
+	dxl_packetHandler = dynamixel::PacketHandler::getPacketHandler(protocolVersion);
+	
+	// Initialize PacketHandler instance
+	// Set the protocol version
+	// Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
+	dxl_portHandler = dynamixel::PortHandler::getPortHandler(deviceName);
+
+	dxl_deviceName = deviceName;
+	dxl_protocolVesion = protocolVersion;
+
 	// Open port
-	if (!portHandler->openPort())
+	if (!dxl_portHandler->openPort())
 	{
 		printf("Failed to open the port!\n");
 	}
 
 	// Set port baudrate
-	if (!portHandler->setBaudRate(desired_baudrate))
+	if (!dxl_portHandler->setBaudRate(desired_baudrate))
 		printf("Failed to change the baudrate!\n");
 
 	// initializing variables
@@ -31,8 +44,6 @@ dynamixels::dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHan
 	baudrate = desired_baudrate;
 	qtdDyn = 0;
 
-	dxl_packetHandler = packetHandler;
-	dxl_portHandler = portHandler;
 
 	// Searching for dynamixels
 	searchDynamixels();

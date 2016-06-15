@@ -9,18 +9,10 @@
 
 int main(int argc, char* argv[])
 {
-  // Initialize PortHandler instance
-  // Set the port path
-  // Get methods and members of PortHandlerLinux or PortHandlerWindows
-  dynamixel::PortHandler *portHandler = dynamixel::PortHandler::getPortHandler(DEVICENAME);
+  char deviceName[13] = DEVICENAME; // ""
+  int  protocolVersion = PROTOCOL_VERSION;
 
-  // Initialize PacketHandler instance
-  // Set the protocol version
-  // Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
-  dynamixel::PacketHandler *packetHandler = dynamixel::PacketHandler::getPacketHandler(PROTOCOL_VERSION);
-
-
-  dynamixels dxls(portHandler, packetHandler);
+  dynamixels dxls(deviceName, protocolVersion);
   dxls.printInfo(HEADER_INFO);
   // dxls.enableTorqueALL(portHandler, packetHandler);
 
@@ -55,7 +47,7 @@ int main(int argc, char* argv[])
 
   // dxls.disableTorqueALL();
   // Close port
-  portHandler->closePort();
+  dxls.dxl_portHandler->closePort();
 
   return 0;
 }

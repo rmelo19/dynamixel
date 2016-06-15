@@ -37,17 +37,18 @@ class dynamixels
 {
 	public:
 		// dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler);
-        dynamixels(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, int desired_baudrate = BAUDRATE);
+        dynamixels(char* deviceName, int protocolVersion, int desired_baudrate = BAUDRATE);
 		~dynamixels();
 
         dynamixel::PortHandler *dxl_portHandler;
         dynamixel::PacketHandler *dxl_packetHandler;
 
-
-
         uint8_t ID_array[MAXIMUM_NUMBER_DYNAMIXELS];
         uint8_t firmware[MAXIMUM_NUMBER_DYNAMIXELS];
         uint8_t operatingMode[MAXIMUM_NUMBER_DYNAMIXELS];
+
+        char dxl_deviceName[13];
+        int dxl_protocolVersion;
        
         #if PROTOCOL_VERSION == 2
             uint32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
