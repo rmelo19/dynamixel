@@ -4,50 +4,66 @@
  *  Created on: 2016. 6. 9. 
  *      Author: Rodrigo Marques
  */
- 
+
 #include <dynamixels.h>
+#define PROTOCOL_VERSION  1
 
 int main(int argc, char* argv[])
 {
-  char deviceName[13] = DEVICENAME; // ""
-  int  protocolVersion = PROTOCOL_VERSION;
+  char deviceName1[13] = "/dev/ttyUSB0"; 
+  dynamixels dxls1(deviceName1, 1);
+  dxls1.printInfo(HEADER_INFO);
 
-  dynamixels dxls(deviceName, protocolVersion);
-  dxls.printInfo(HEADER_INFO);
-  // dxls.enableTorqueALL(portHandler, packetHandler);
-
-  // int index = 0;
-  // uint32_t dxl_goal_position[2] = {DXL_MINIMUM_POSITION_VALUE, DXL_MAXIMUM_POSITION_VALUE};  // Goal position
-
-
+  char deviceName2[13] = "/dev/ttyUSB1";
+  dynamixels dxls2(deviceName2, 2);
+  dxls2.printInfo(HEADER_INFO);
   // zeroing
-  printf("Zeroing position\n");
-  dxls.setPositionALL(DXL_MINIMUM_POSITION_VALUE);
+  sleep(1);
+  dxls2.enableTorqueALL();
 
-  // // dxls.setPosition(portHandler, packetHandler, index, dxl_goal_position[1]);
-  // // dxls.printInfo(MOVING_INFO);
+  printf("Press any key to continue! (or press ESC to quit!)\n");
+  if (getch() == ESC_ASCII_VALUE)
+    return 0;
+  dxls2.printInfo(POSITION_INFO); 
+  while(1)
+  {
+    // dxls.setPositionALL(DXL_MINIMUM_POSITION_VALUE);
+    dxls1.setPosition(0, 2000);
+    dxls1.setPosition(1, 500);
+    dxls2.setPosition(0, 3000);
+    dxls2.setPosition(1, 3000);
+    // while(1)
+    // {
+     
+      // dxls1.printInfo(POSITION_INFO);
+      // sleep(1);
+    // }
+    // sleep(5);
+    printf("Press any key to continue! (or press ESC to quit!)\n");
+    if (getch() == ESC_ASCII_VALUE)
+      return 0;
+    dxls2.printInfo(POSITION_INFO); 
+    // while (1)
+    // {
+    //   dxls2.printInfo(POSITION_INFO);
+    //   sleep(0.5);  
+    // }
+      
+    
+    dxls1.setPosition(0, 0);
+    dxls1.setPosition(1, 0);
+    dxls2.setPosition(0, 0);
+    dxls2.setPosition(1, 0);
+    
 
-  // // dxls.setPosition(portHandler, packetHandler, index, dxl_goal_position[1]);
-  // // dxls.printInfo(MOVING_INFO);
-
-  // // sleep(2);
-  // dxls.printInfo(POSITION_INFO);
-
-
-
-  // printf("Maximizing position\n");
-  // dxls.setPositionALL(DXL_MAXIMUM_POSITION_VALUE);
-
-  // dxls.setPosition(portHandler, packetHandler, index, dxl_goal_position[1]);
-  // dxls.printInfo(MOVING_INFO);
-  // dxls.setPosition(portHandler, packetHandler, index + 1, dxl_goal_position[1]);
-  // dxls.printInfo(MOVING_INFO);
-
-  // dxls.printInfo(POSITION_INFO);
-
-  // dxls.disableTorqueALL();
+    printf("Press any key to continue! (or press ESC to quit!)\n");
+    if (getch() == ESC_ASCII_VALUE)
+      break;
+    dxls2.printInfo(POSITION_INFO);
+  }
+  // dxls2.disableTorqueALL();
   // Close port
-  dxls.dxl_portHandler->closePort();
+  dxls1.dxl_portHandler->closePort();
 
   return 0;
 }

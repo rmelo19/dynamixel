@@ -12,9 +12,6 @@
 // #define XM430
 // #define MX28
 
-// Protocol version
-#define PROTOCOL_VERSION                1                 // See which protocol version is used in the Dynamixel
-
 #include <dynamixelsDefs.h>
 #include <dynamixel_sdk.h>                                  // Uses Dynamixel SDK library
 #ifdef __linux__
@@ -47,30 +44,40 @@ class dynamixels
         uint8_t firmware[MAXIMUM_NUMBER_DYNAMIXELS];
         uint8_t operatingMode[MAXIMUM_NUMBER_DYNAMIXELS];
 
-        char dxl_deviceName[13];
+        char *dxl_deviceName;
         int dxl_protocolVersion;
-       
-        #if PROTOCOL_VERSION == 2
-            uint32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
-            uint8_t  protocol[MAXIMUM_NUMBER_DYNAMIXELS];
-            uint32_t minPositionLimit[MAXIMUM_NUMBER_DYNAMIXELS];
-            uint32_t maxPositionLimit[MAXIMUM_NUMBER_DYNAMIXELS];
-            uint32_t readPosition(int index);
-
-        #else
-            uint16_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
-            uint16_t readPosition(int index);
-        #endif
-
         int qtdDyn; // dynamixels quantity
+        
+        uint8_t  protocol[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint32_t minPositionLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint32_t maxPositionLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint16_t inputVoltage[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint16_t maxVoltageLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint16_t minVoltageLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint32_t presentPosition[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint16_t presentCurrent[MAXIMUM_NUMBER_DYNAMIXELS];
+        uint16_t currentLimit[MAXIMUM_NUMBER_DYNAMIXELS];
+        int positionOffset[MAXIMUM_NUMBER_DYNAMIXELS];
+        bool isMoving[MAXIMUM_NUMBER_DYNAMIXELS];
 
+        void setProfileVelocity(uint8_t desired_profile_velocity = STEP_VELOCITY_PROFILE);
         void enableTorqueALL(void);
         void disableTorqueALL(void);
+        uint32_t readPosition(int index);
+        void readPositionALL(void);
+
+        bool readData(int index, int info);
+        bool readDataALL(int info);
+
+        void zeroPositionALL(void);
         void changeMode(uint8_t desired_mode);
-        int searchDynamixels(int desired_baudrate = BAUDRATE);
         void printInfo(int info);
-        void setPosition(int index, uint32_t desired_position);
+        void setPosition(int index, uint32_t desired_position, uint16_t desired_velocity = MAXIMUM_MOVING_SPEED);
         void setPositionALL(uint32_t desired_position);
+        void setMaxInputVoltage(int desired_max_input_voltage);
+        void setVelocity(int index, uint16_t desired_velocity = MAXIMUM_MOVING_SPEED);
+        int searchDynamixels(int desired_baudrate = BAUDRATE);
+        
         
     private:
         int baudrate;

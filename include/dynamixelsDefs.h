@@ -21,6 +21,26 @@
 #define POSITION_INFO                   3
 #define HEADER_INFO                     4
 #define MOVING_INFO                     5
+#define DETAILS_INFO					6
+
+// READING DATA
+#define ID_DATA							0
+#define PROTOCOL_DATA					1
+#define FIRMWARE_DATA					2
+#define MIN_VOLTAGE_DATA				3
+#define MAX_VOLTAGE_DATA				4
+#define CURRENT_LIMIT_DATA				5
+#define PRESENT_CURRENT_DATA			6
+#define MIN_POSITION_LIMIT_DATA			7
+#define MAX_POSITION_LIMIT_DATA			8
+#define POSITION_DATA 					9
+#define PRESENT_INPUT_VOLTAGE_DATA		10
+#define MOVING_DATA						11
+
+
+// MOVING SPEEDS
+#define MAXIMUM_MOVING_SPEED			1023
+#define MINIMUM_MOVING_SPEED			1
 
 // ADDRESSES
 // based on http://support.robotis.com/en/product/dynamixel/x_series/xm430-w350.htm
@@ -91,8 +111,16 @@
 #define ADDR_CW_ANGLE_LIMIT				6
 #define ADDR_CCW_ANGLE_LIMIT			8
 
+// VELOCITY PROFILES
+#define STEP_VELOCITY_PROFILE			0
+#define RECTANGLE_VELOCITY_PROFILE		1
+#define TRIANGLE_VELOCITY_PROFILE		2
+#define TRAPEZOIDAL_VELOCITY_PROFILE	3
+
 // #define ADDR_OPERATING_MODE				11
 // #define ADDR_PROTOCOL_VERSION			13
+
+#define ADDR_MULTI_TURN_OFFSET			20
 
 #define ADDR_GOAL_POSITION          	30
 #define ADDR_MOVING_SPEED				32

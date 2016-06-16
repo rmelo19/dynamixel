@@ -10,15 +10,15 @@ dynamixels::dynamixels(char* deviceName, int protocolVersion, int desired_baudra
 	// Initialize PortHandler instance
 	// Set the port path
 	// Get methods and members of PortHandlerLinux or PortHandlerWindows
-	dxl_packetHandler = dynamixel::PacketHandler::getPacketHandler(protocolVersion);
-	
+	dxl_portHandler = dynamixel::PortHandler::getPortHandler(deviceName);
+
 	// Initialize PacketHandler instance
 	// Set the protocol version
 	// Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
-	dxl_portHandler = dynamixel::PortHandler::getPortHandler(deviceName);
+	dxl_packetHandler = dynamixel::PacketHandler::getPacketHandler(protocolVersion);
 
 	dxl_deviceName = deviceName;
-	dxl_protocolVesion = protocolVersion;
+	dxl_protocolVersion = protocolVersion;
 
 	// Open port
 	if (!dxl_portHandler->openPort())
@@ -34,25 +34,47 @@ dynamixels::dynamixels(char* deviceName, int protocolVersion, int desired_baudra
 	for (int i=0;i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
 	{
 		ID_array[i] = 0;
-		
-		#if PROTOCOL_VERSION == 2
+		positionOffset[i] = 0;
+		if (dxl_protocolVersion == 2)
 			operatingMode[i] = POSITION_CONTROL_MODE; // default mode
-		#else
-			operatingMode[i] = WHEEL_MODE; // default mode
-		#endif
+		else
+		{
+			operatingMode[i] = MULTI_TURN_MODE; // default mode
+		}
 	}
 	baudrate = desired_baudrate;
-	qtdDyn = 0;
-
 
 	// Searching for dynamixels
-	searchDynamixels();
+	qtdDyn = searchDynamixels();
 
+	if (dxl_protocolVersion == 2)
+	{
+		disableTorqueALL();
+		for (int i = 0; i < MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; ++i)
+		{
+			readData(i, PROTOCOL_DATA);
+			readData(i, FIRMWARE_DATA);
+			readData(i, MAX_VOLTAGE_DATA);
+			readData(i, MIN_VOLTAGE_DATA);
+			readData(i, MAX_POSITION_LIMIT_DATA);
+			readData(i, MIN_POSITION_LIMIT_DATA);
+			readData(i, PRESENT_INPUT_VOLTAGE_DATA);
+			setVelocity(i, MAXIMUM_MOVING_SPEED);
 
-	#if PROTOCOL_VERSION == 2
-	#else
-		changeMode(WHEEL_MODE);
-	#endif
+		}
+
+		changeMode(POSITION_CONTROL_MODE);
+		setProfileVelocity(STEP_VELOCITY_PROFILE);
+	}
+	else if (dxl_protocolVersion == 1)
+	{
+		changeMode(MULTI_TURN_MODE); // CORRECT, WHEEL_MODE?
+		for (int i = 0; i < MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; ++i)
+		{
+			setVelocity(i, MAXIMUM_MOVING_SPEED);
+		}
+	}
+	zeroPositionALL();
 }
 
 dynamixels::~dynamixels()
@@ -70,17 +92,7 @@ int dynamixels::searchDynamixels(int desired_baudrate)
 {
 	// Search bus for Dynamixels
 	int count = 0;
-	int dxl_comm_result;
-	uint8_t dxl_error; 
-	uint8_t dxl_id;
-
-  	#if PROTOCOL_VERSION == 2
-		uint8_t dxl_firmware;
-		uint8_t dxl_protocol;	  
-		uint32_t dxl_minPositionLimit;
-		uint32_t dxl_maxPositionLimit;
-	#endif
-
+	bool success;
 
   // Set port baudrate
   if (!(dxl_portHandler->setBaudRate(desired_baudrate)))
@@ -88,52 +100,11 @@ int dynamixels::searchDynamixels(int desired_baudrate)
     printf("Failed to change the baudrate!\n");
   }
 
-  for (int i=1; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
+  for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
   {
-    dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, i, ADDR_ID, (uint8_t*)&dxl_id, &dxl_error);
-	if (dxl_comm_result == COMM_SUCCESS)
-	{
-		ID_array[count] = dxl_id;
-		#if PROTOCOL_VERSION == 2
-			dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, i, ADDR_PROTOCOL_VERSION, (uint8_t*)&dxl_protocol, &dxl_error);
-			if (dxl_comm_result == COMM_SUCCESS)
-			{
-				protocol[count] = dxl_protocol;
-			}
-			else
-			{
-				printf("Failed to read protocol.\n");
-			}
-			dxl_comm_result = dxl_packetHandler->read4ByteTxRx(dxl_portHandler, i, ADDR_MIN_POSITION_LIMIT, (uint32_t*)&dxl_minPositionLimit, &dxl_error);
-			if (dxl_comm_result == COMM_SUCCESS)
-			{
-				minPositionLimit[count] = dxl_minPositionLimit;
-			}
-			else
-			{
-				printf("Failed to read minimum position limit.\n");
-			}
-			dxl_comm_result = dxl_packetHandler->read4ByteTxRx(dxl_portHandler, i, ADDR_MAX_POSITION_LIMIT, (uint32_t*)&dxl_maxPositionLimit, &dxl_error);
-			if (dxl_comm_result == COMM_SUCCESS)
-			{
-				maxPositionLimit[count] = dxl_maxPositionLimit;
-			}
-			else
-			{
-				printf("Failed to read maximum position limit.\n");
-			}
-			dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, i, ADDR_VERSION_FIRMWARE, (uint8_t*)&dxl_firmware, &dxl_error);
-			if (dxl_comm_result == COMM_SUCCESS)
-			{
-				firmware[count] = dxl_firmware;
-			}
-			else
-			{
-				printf("Failed to read firmware.\n");
-			}
-		#endif
+  	success = readData(i, ID_DATA);
+	if (success)
 		count++;
-	}
   }
   if (count == 0)
   {
@@ -146,7 +117,6 @@ int dynamixels::searchDynamixels(int desired_baudrate)
     printf("Failed to change the baudrate!\n");
   }
 
-  qtdDyn = count;
   return count;
 }
 
@@ -159,80 +129,67 @@ void dynamixels::printInfo(int info)
 {
 	// print baudrate
 	if (info == BAUDRATE_INFO)
-	{
 		printf("Baudrate: %d\n", baudrate);
-	}
 
 	// print IDs
 	if (info == ID_ARRAY_INFO)
-	{
-  		printf("IDs found: ");
-		for (int i=1; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
-  		{
-  			if (ID_array[i] == 0)
-  				break;
-  			printf(" %d", ID_array[i]);
-  		}
-	}
+  		printf("IDs found: %d", qtdDyn);
 
 	if (info == POSITION_INFO)
 	{
 		printf("PRESENT POSITION:\n");
-		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
-  		{
-  			if (ID_array[i] == 0)
-  				break;
+		readPositionALL();
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0;i++)
   			printf("    ID: %d, POSITION: %d\n", ID_array[i], presentPosition[i]);
-  		}
-  		printf("\n");
 	}
 	
 	if (info == HEADER_INFO)
 	{
-		printf("DYNAMIXELS:\n");
-		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
+		printf("FOUND %d DYNAMIXELS:\n", qtdDyn);
+		printf("    PROTOCOL VERSION: %d\n", dxl_protocolVersion);
+		printf("    DEVICE PORT: %s\n", dxl_deviceName);
+		printf("    BAUDRATE: %d\n", baudrate);
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0;i++)
   		{
-  			if (ID_array[i] == 0)
-  				break;
   			printf("    ID: %d\n", ID_array[i]);		
-  			#if PROTOCOL_VERSION == 2
+  			if (dxl_protocolVersion == 2)
+	  		{
 	  			printf("        FIRMWARE: %d\n", firmware[i]);
 	  			printf("        PROTOCOL: %d\n", protocol[i]);
 	  			printf("        MIN_POSITION_LIMIT: %d\n", minPositionLimit[i]);
 	  			printf("        MAX_POSITION_LIMIT: %d\n", maxPositionLimit[i]);
-  			#endif
+	  			printf("        PRESENT_INPUT_VOLTAGE: %.1fV\n", inputVoltage[i]*0.1);
+	  			printf("        MIN_VOLTAGE_LIMIT: %.1fV\n", minVoltageLimit[i]*0.1);
+	  			printf("        MAX_VOLTAGE_LIMIT: %.1fV\n", maxVoltageLimit[i]*0.1);
+  			}
   		}
   		printf("\n");
 	}
 	if (info == MOVING_INFO)
 	{
-		int dxl_comm_result = COMM_TX_FAIL;             // Communication result
-		uint8_t dxl_error = 0;                          // Dynamixel error
-		uint8_t isMoving = 0;
-		
-
 		printf("MOVING STATUS:\n");
 		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
   		{
-  			if (ID_array[i] == 0)
-  				break;
-  			dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_MOVING, (uint8_t*)&isMoving, &dxl_error);
-			if (dxl_comm_result != COMM_SUCCESS)
-			{
-				printf("Error detecting movement for dynamixel: %d, ", ID_array[i]);
-				dxl_packetHandler->printTxRxResult(dxl_comm_result);
-			}
-			else if (dxl_error != 0)
-			{	
-				printf("Error detecting movement for dynamixel: %d, ", ID_array[i]);
-				dxl_packetHandler->printRxPacketError(dxl_error);
-			}
-  			if (ID_array[i] == 0)
-  				break;
-  			printf("    ID: %d, MOVING: %d\n", ID_array[i], isMoving);
+  			readData(i, MOVING_DATA);
+  			printf("    ID: %d, MOVING: %d\n", ID_array[i], isMoving[i]);
   		}
-  		printf("\n");
 	}
+
+	if (info == DETAILS_INFO)
+	{
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0;i++)
+  		{
+  			printf("    ID: %d", ID_array[i]);		
+  			if (dxl_protocolVersion == 2)
+	  		{
+	  			readData(i, POSITION_DATA);
+	  			readData(i, PRESENT_CURRENT_DATA);
+	  			printf("POSITION %4d, CURRENT %4d\n", presentPosition[i], presentCurrent[i]);
+  			}
+  		}
+	}
+	printf("\n");
+
 }
 
 //#################################################################
@@ -240,7 +197,7 @@ void dynamixels::printInfo(int info)
 // void dynamixels::setPosition(int index, int desired_position)
 //
 //#################################################################
-void dynamixels::setPosition(int index, uint32_t desired_position)
+void dynamixels::setPosition(int index, uint32_t desired_position, uint16_t desired_velocity)
 {
 	if (desired_position < DXL_MINIMUM_POSITION_VALUE)
 	{
@@ -254,15 +211,13 @@ void dynamixels::setPosition(int index, uint32_t desired_position)
 	int dxl_comm_result = COMM_TX_FAIL;             // Communication result
 	uint8_t dxl_error; 
 	// Write goal position
-	#if PROTOCOL_VERSION == 2
-		dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_GOAL_POSITION, (uint32_t) desired_position, &dxl_error);
-	#else
-		// uint16_t desired_velocity = 1030; // slow CW speed // CORRECT
-		uint16_t desired_velocity = 20; // slow CCW speed // CORRECT
-		
+	if (dxl_protocolVersion == 2)
+		dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_GOAL_POSITION, (uint32_t) desired_position, &dxl_error);
+	else
+	{
 		dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_GOAL_POSITION, (uint16_t) desired_position, &dxl_error);
-		dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_MOVING_SPEED, (uint16_t) desired_velocity, &dxl_error);
-	#endif
+		setVelocity(index, desired_velocity);
+	}
 
 	if (dxl_comm_result != COMM_SUCCESS)
 	{
@@ -297,11 +252,7 @@ void dynamixels::setPositionALL(uint32_t desired_position)
 	if ((int) desired_position + POSITION_THRESHOLD > DXL_MAXIMUM_POSITION_VALUE)
 		upperLimit = DXL_MAXIMUM_POSITION_VALUE;
 
-	#if PROTOCOL_VERSION == 2
-		uint32_t position;
-	#else
-		uint16_t position;
-	#endif
+	uint32_t position;
 	bool inPlace = true;
   	for(int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
 	{
@@ -325,41 +276,344 @@ void dynamixels::setPositionALL(uint32_t desired_position)
 
 //#################################################################
 //
-// void dynamixels::enableTorqueALL(void)
-//     reads position, stores in object attribute and returns it.
-// returns: the present position
+// uint32_t dynamixels::readPosition(int index)
+//
 //#################################################################
-#if PROTOCOL_VERSION == 2
-	uint32_t dynamixels::readPosition(int index)
-#else
-	uint16_t dynamixels::readPosition(int index)
-#endif
+uint32_t dynamixels::readPosition(int index)
 {
-	int dxl_comm_result;
-	uint8_t dxl_error; 
-	// Read present position
-	#if PROTOCOL_VERSION == 2
-		uint32_t dxl_present_position;
-		dxl_comm_result = dxl_packetHandler->read4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRESENT_POSITION, (uint32_t*)&dxl_present_position, &dxl_error);
-	#else
-		uint16_t dxl_present_position;
-		dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRESENT_POSITION, (uint16_t*)&dxl_present_position, &dxl_error);
-	#endif
+	readData(index, POSITION_DATA);
+	return presentPosition[index];
+} 
 
-	if (dxl_comm_result != COMM_SUCCESS)
-	{
-		dxl_packetHandler->printTxRxResult(dxl_comm_result);
-	}
-	else if (dxl_error != 0)
-	{
-	    dxl_packetHandler->printRxPacketError(dxl_error);
-	}
-	presentPosition[index] = dxl_present_position;
-	return dxl_present_position;
-}
 //#################################################################
 //
-// void dynamixels::changeMode(dynamixel::PortHandler *portHandler, dynamixel::PacketHandler *packetHandler, uint8_t desired_mode)
+// void dynamixels::readPositionALL(void)
+//     
+//
+//#################################################################
+void dynamixels::readPositionALL(void)
+{
+	for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+	{
+		readPosition(i);
+	}
+}
+
+
+bool dynamixels::readData(int index, int info)
+{
+	int dxl_comm_result;
+	uint8_t dxl_error;
+	bool success;
+	// static int count = 0; // CORRECT
+	int count = 0;
+	switch(info)
+	{
+		case ID_DATA:
+			uint8_t dxl_id;
+			if (dxl_protocolVersion == 2)
+		    	dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, index, ADDR_PRO_ID, (uint8_t*)&dxl_id, &dxl_error);
+		    else
+		    	dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, index, ADDR_ID, (uint8_t*)&dxl_id, &dxl_error);
+		    if (dxl_comm_result == COMM_SUCCESS)
+			{
+				// ID_array[count] = dxl_id;
+				while (ID_array[count] != 0) count++;
+				ID_array[count] = dxl_id;
+
+				success = true;
+				// count++; // CORRECT
+				count = 0;
+			}
+			else
+			{
+				success = false;
+			}
+		    break;
+		case PROTOCOL_DATA:
+			uint8_t dxl_protocol;
+			dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_PROTOCOL_VERSION, (uint8_t*)&dxl_protocol, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				protocol[index] = dxl_protocol;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read protocol.\n");
+				success = false;
+			}
+			break;
+		case MIN_POSITION_LIMIT_DATA:
+			uint32_t dxl_minPositionLimit;
+			dxl_comm_result = dxl_packetHandler->read4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_MIN_POSITION_LIMIT, (uint32_t*)&dxl_minPositionLimit, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				minPositionLimit[index] = dxl_minPositionLimit;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read minimum position limit.\n");
+				success = false;
+			}
+			break;
+		case MAX_POSITION_LIMIT_DATA:
+			uint32_t dxl_maxPositionLimit;
+			dxl_comm_result = dxl_packetHandler->read4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_MAX_POSITION_LIMIT, (uint32_t*)&dxl_maxPositionLimit, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				maxPositionLimit[index] = dxl_maxPositionLimit;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read maximum position limit.\n");
+				success = false;
+			}
+			break;
+		case CURRENT_LIMIT_DATA:
+			uint16_t dxl_currentLimit;
+			dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_CURRENT_LIMIT, (uint16_t*)&dxl_currentLimit, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				currentLimit[index] = dxl_currentLimit;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read current limit.\n");
+				success = false;
+			}
+			break;
+		case PRESENT_CURRENT_DATA:
+			uint16_t dxl_presentCurrent;
+			dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_PRESENT_CURRENT, (uint16_t*)&dxl_presentCurrent, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				presentCurrent[index] = dxl_presentCurrent;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read current limit.\n");
+				success = false;
+			}
+			break;
+		case FIRMWARE_DATA:
+			uint8_t dxl_firmware;
+			dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_VERSION_FIRMWARE, (uint8_t*)&dxl_firmware, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				firmware[index] = dxl_firmware;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read firmware.\n");
+				success = false;
+			}
+			break;
+		case POSITION_DATA:
+			// Read present position
+			uint32_t dxl_present_position;
+			if (dxl_protocolVersion == 2)	
+				dxl_comm_result = dxl_packetHandler->read4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_PRESENT_POSITION, (uint32_t*)&dxl_present_position, &dxl_error);
+			else
+			{
+				uint16_t aux;
+				dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRESENT_POSITION, (uint16_t*)&aux, &dxl_error);
+				dxl_present_position = (uint32_t) aux;
+			}
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to read position.");
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+				success = false;
+			}
+			else if (dxl_error != 0)
+			{
+				printf("Failed to read position.");
+			    dxl_packetHandler->printRxPacketError(dxl_error);
+			    success = false;
+			}
+			else
+			{
+				presentPosition[index] = dxl_present_position;
+				success = true;
+				// presentPosition[index] = (uint32_t) ( (int) dxl_present_position + positionOffset[index]);		
+			}
+			printf("%d %d %d\n", (int) dxl_present_position, positionOffset[index], presentPosition[index] + positionOffset[index]); // CORRECT
+			break;
+		case PRESENT_INPUT_VOLTAGE_DATA:
+			uint16_t dxl_inputVoltage;
+			dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_PRESENT_INPUT_VOLTAGE, (uint16_t*)&dxl_inputVoltage, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				inputVoltage[index] = dxl_inputVoltage;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read input voltage.\n");
+				success = false;
+			}
+			break;
+		case MAX_VOLTAGE_DATA:
+			uint16_t dxl_maxVoltageLimit;
+			dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_MAX_VOLTAGE, (uint16_t*)&dxl_maxVoltageLimit, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				maxVoltageLimit[index] = dxl_maxVoltageLimit;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read maximum voltage limit.\n");
+				success = false;
+			}		
+			break;
+		case MIN_VOLTAGE_DATA:
+			uint16_t dxl_minVoltageLimit;
+			dxl_comm_result = dxl_packetHandler->read2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_MIN_VOLTAGE, (uint16_t*)&dxl_minVoltageLimit, &dxl_error);
+			if (dxl_comm_result == COMM_SUCCESS)
+			{
+				minVoltageLimit[index] = dxl_minVoltageLimit;
+				success = true;
+			}
+			else
+			{
+				printf("Failed to read minimum voltage limit.\n");
+				success = false;
+			}
+			break;
+		case MOVING_DATA:
+			uint8_t dxl_isMoving;
+  			dxl_comm_result = dxl_packetHandler->read1ByteTxRx(dxl_portHandler, ID_array[index], ADDR_MOVING, (uint8_t*)&dxl_isMoving, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Error detecting movement for dynamixel %d, ", ID_array[index]);
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+				success = false;
+			}
+			else if (dxl_error != 0)
+			{	
+				printf("Error detecting movement for dynamixel %d, ", ID_array[index]);
+				dxl_packetHandler->printRxPacketError(dxl_error);
+				success = false;
+			}
+			else
+			{
+				isMoving[index] = (isMoving != 0);
+				success = true;
+			}
+			break;
+		default:
+			success = false;
+			break;
+
+	}
+	return success;
+}
+
+bool dynamixels::readDataALL(int info)
+{
+	bool success = true;
+	for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+	{
+		success = success && readData(i, info);
+	}
+	return success;
+}
+
+//#################################################################
+//
+// void dynamixels::zeroPositionALL(void)
+//     
+//
+//#################################################################
+void dynamixels::zeroPositionALL(void)
+{
+	int dxl_comm_result;
+	uint8_t dxl_error;
+
+	if (dxl_protocolVersion == 2)
+	{
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+		{
+			dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_HOMING_OFFSET, 0, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to zero position.");
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{
+				printf("Failed to zero position.");
+			    dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+		readPositionALL();
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+		{
+			positionOffset[i] = -(int) presentPosition[i];
+		}
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+		{
+			dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_HOMING_OFFSET, positionOffset[i], &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to zero position.");
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{
+				printf("Failed to zero position.");
+			    dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+	}
+	else if (dxl_protocolVersion == 1)
+	{
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+		{
+			dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[i], ADDR_MULTI_TURN_OFFSET, 0, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to zero position.\n");
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{
+				printf("Failed to zero position.\n");
+			    dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+		readPositionALL();
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+		{
+			positionOffset[i] = -(int) presentPosition[i];
+		}
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
+		{
+			dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[i], ADDR_MULTI_TURN_OFFSET, positionOffset[i], &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to zero position.\n");
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{
+				printf("Failed to zero position.\n");
+			    dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+	}
+}
+
+//#################################################################
+//
+// void dynamixels::changeMode(uint8_t desired_mode)
 //
 //#################################################################
 void dynamixels::changeMode(uint8_t desired_mode)
@@ -372,23 +626,26 @@ void dynamixels::changeMode(uint8_t desired_mode)
   	{
   		if (ID_array[i] == 0)
   			break;
-  		#if PROTOCOL_VERSION == 2
-			dxl_comm_result = dxl_packetHandler->write1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_OPERATING_MODE, desired_mode, &dxl_error);
+  		if (dxl_protocolVersion == 2)
+  		{
+			dxl_comm_result = dxl_packetHandler->write1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_OPERATING_MODE, desired_mode, &dxl_error);
 			if (dxl_comm_result != COMM_SUCCESS)
 			{
-				printf("Error changing mode for dynamixel: %d, ", ID_array[i]);
+				printf("Error changing mode for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printTxRxResult(dxl_comm_result);
 			}
 			else if (dxl_error != 0)
 			{	
-				printf("Error changing mode for dynamixel: %d, ", ID_array[i]);
+				printf("Error changing mode for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printRxPacketError(dxl_error);
 			}
 			else
 			{
 				operatingMode[i] = desired_mode;
 			}
-		#else
+		}
+		else
+		{
 			uint16_t CW;
 			uint16_t CCW;
 			if (desired_mode == WHEEL_MODE)
@@ -409,30 +666,30 @@ void dynamixels::changeMode(uint8_t desired_mode)
 			dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[i], ADDR_CW_ANGLE_LIMIT, CW, &dxl_error);
 			if (dxl_comm_result != COMM_SUCCESS)
 			{
-				printf("Error changing mode for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to change mode for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printTxRxResult(dxl_comm_result);
 			}
 			else if (dxl_error != 0)
 			{	
-				printf("Error changing mode for dynamixel: %d, ", ID_array[i]);
+				printf("Failed change mode for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printRxPacketError(dxl_error);
 			}
 			dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[i], ADDR_CCW_ANGLE_LIMIT, CCW, &dxl_error);
 			if (dxl_comm_result != COMM_SUCCESS)
 			{
-				printf("Error changing mode for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to change mode for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printTxRxResult(dxl_comm_result);
 			}
 			else if (dxl_error != 0)
 			{	
-				printf("Error changing mode for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to change mode for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printRxPacketError(dxl_error);
 			}
 			else
 			{
 				operatingMode[i] = desired_mode;
 			}
-		#endif
+		}
 	}
 }
 
@@ -441,7 +698,152 @@ void dynamixels::changeMode(uint8_t desired_mode)
 // PROTOCOL SPECIFIC FUNCTIONS
 //
 //#################################################################
-#if PROTOCOL_VERSION == 2
+	//#################################################################
+	//
+	// void dynamixels::setPositionALL(int desired_position)
+	//
+	//#################################################################
+	void dynamixels::setMaxInputVoltage(int desired_max_input_voltage)
+	{
+		uint16_t desired_voltage = desired_max_input_voltage*10;
+		int dxl_comm_result = COMM_TX_FAIL;             // Communication result
+		uint8_t dxl_error;
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0;i++)
+		{
+			if (dxl_protocolVersion == 2)
+			{
+				dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_MAX_VOLTAGE, (uint16_t) desired_voltage, &dxl_error);
+				if (dxl_comm_result != COMM_SUCCESS)
+				{
+					printf("Failed to set max input voltage, ID: %d, ", ID_array[i]);
+					dxl_packetHandler->printTxRxResult(dxl_comm_result);
+				}
+				else if (dxl_error != 0)
+				{	
+					printf("Failed to set max input voltage, ID: %d, ", ID_array[i]);
+					dxl_packetHandler->printRxPacketError(dxl_error);
+				}
+				else
+				{
+					maxVoltageLimit[i] = desired_voltage;
+				}
+			}
+		}
+	}
+
+	//#################################################################
+	//
+	// void dynamixels::setVelocity(int index, uint32_t desired_position)
+	//
+	//#################################################################
+	void dynamixels::setVelocity(int index, uint16_t desired_velocity)
+	{
+		int dxl_comm_result = COMM_TX_FAIL;             // Communication result
+		uint8_t dxl_error;
+		if (dxl_protocolVersion == 1)
+		{
+			dxl_comm_result = dxl_packetHandler->write2ByteTxRx(dxl_portHandler, ID_array[index], ADDR_MOVING_SPEED, (uint16_t) desired_velocity, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to change velocity for dynamixel %d, ", ID_array[index]);
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{	
+				printf("Failed to change velocity for dynamixel %d, ", ID_array[index]);
+				dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+		if (dxl_protocolVersion == 2)
+		{
+			dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[index], ADDR_PRO_VELOCITY_LIMIT, (uint32_t) desired_velocity, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to change velocity for dynamixel %d, ", ID_array[index]);
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{	
+				printf("Failed to change velocity for dynamixel %d, ", ID_array[index]);
+				dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+	}
+
+	//#################################################################
+	//
+	// void dynamixels::setProfileVelocity(uint8_t desired_profile_velocity)
+	//
+	//#################################################################
+	void dynamixels::setProfileVelocity(uint8_t desired_profile_velocity)
+	{
+		int dxl_comm_result = COMM_TX_FAIL;             // Communication result
+		uint8_t dxl_error;
+
+		if (dxl_protocolVersion != 2)
+		{
+			printf("Feature not available for protocol %d.\n", dxl_protocolVersion);
+			return;
+		}
+
+		uint32_t velocityProfile;
+		uint32_t accelerationProfile;
+
+		switch(desired_profile_velocity)
+		{
+			case STEP_VELOCITY_PROFILE:
+				velocityProfile = 0;
+				accelerationProfile = MAXIMUM_MOVING_SPEED;
+				break;
+
+			case RECTANGLE_VELOCITY_PROFILE:
+				velocityProfile = MAXIMUM_MOVING_SPEED;
+				accelerationProfile = 0;
+				break;
+
+			case TRIANGLE_VELOCITY_PROFILE:
+				velocityProfile = MAXIMUM_MOVING_SPEED;
+				accelerationProfile = MAXIMUM_MOVING_SPEED;
+				break;
+
+			case TRAPEZOIDAL_VELOCITY_PROFILE:
+				velocityProfile = MAXIMUM_MOVING_SPEED;
+				accelerationProfile = MAXIMUM_MOVING_SPEED;
+				break;
+			default:
+				velocityProfile = 0;
+				accelerationProfile = MAXIMUM_MOVING_SPEED;
+				break;
+		}
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0;i++)
+		{
+			// Writing Velocity Profile
+			dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_PROFILE_VELOCITY, velocityProfile, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to change velocity profile, ID: %d, ", ID_array[i]);
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{	
+				printf("Failed to change velocity profile, ID: %d, ", ID_array[i]);
+				dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+			// Writing Acceleration Profile
+			dxl_comm_result = dxl_packetHandler->write4ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_PROFILE_ACCELERATION, accelerationProfile, &dxl_error);
+			if (dxl_comm_result != COMM_SUCCESS)
+			{
+				printf("Failed to change acceleration profile, ID: %d, ", ID_array[i]);
+				dxl_packetHandler->printTxRxResult(dxl_comm_result);
+			}
+			else if (dxl_error != 0)
+			{	
+				printf("Failed to change acceleration profile,  ID: %d, ", ID_array[i]);
+				dxl_packetHandler->printRxPacketError(dxl_error);
+			}
+		}
+	}
+
 	//#################################################################
 	//
 	// void dynamixels::enableTorqueALL(void)
@@ -449,6 +851,11 @@ void dynamixels::changeMode(uint8_t desired_mode)
 	//#################################################################
 	void dynamixels::enableTorqueALL(void)
 	{
+		if (dxl_protocolVersion != 2)
+		{
+			printf("Protocol not compatible for this function.\n");
+			return;
+		}
 		int dxl_comm_result = COMM_TX_FAIL;             // Communication result
 		uint8_t dxl_error = 0;                          // Dynamixel error
 		// Enable Dynamixel Torque
@@ -456,15 +863,15 @@ void dynamixels::changeMode(uint8_t desired_mode)
 	  	{
 	  		if (ID_array[i] == 0)
 	  			break;
-			dxl_comm_result = dxl_packetHandler->write1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_TORQUE_ENABLE, TORQUE_ENABLE, &dxl_error);
+			dxl_comm_result = dxl_packetHandler->write1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_TORQUE_ENABLE, TORQUE_ENABLE, &dxl_error);
 			if (dxl_comm_result != COMM_SUCCESS)
 			{
-				printf("Error enabling torque for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to enable torque for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printTxRxResult(dxl_comm_result);
 			}
 			else if (dxl_error != 0)
 			{	
-				printf("Error enabling torque for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to enable torque for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printRxPacketError(dxl_error);
 			}
 		}
@@ -477,27 +884,29 @@ void dynamixels::changeMode(uint8_t desired_mode)
 	//#################################################################
 	void dynamixels::disableTorqueALL(void)
 	{
+		if (dxl_protocolVersion != 2)
+		{
+			printf("Protocol not compatible for this function.\n");
+			return;
+		}
 		int dxl_comm_result = COMM_TX_FAIL;             // Communication result
 		uint8_t dxl_error = 0;                          // Dynamixel error
 		// Enable Dynamixel Torque
-		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS;i++)
+		for (int i=0; i<MAXIMUM_NUMBER_DYNAMIXELS && ID_array[i] != 0; i++)
 	  	{
-	  		if (ID_array[i] == 0)
-	  			break;
-			dxl_comm_result = dxl_packetHandler->write1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_TORQUE_ENABLE, TORQUE_DISABLE, &dxl_error);
+			dxl_comm_result = dxl_packetHandler->write1ByteTxRx(dxl_portHandler, ID_array[i], ADDR_PRO_TORQUE_ENABLE, TORQUE_DISABLE, &dxl_error);
 			if (dxl_comm_result != COMM_SUCCESS)
 			{
-				printf("Error disabling torque for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to disable torque for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printTxRxResult(dxl_comm_result);
 			}
 			else if (dxl_error != 0)
 			{	
-				printf("Error disabling torque for dynamixel: %d, ", ID_array[i]);
+				printf("Failed to disable torque for dynamixel %d, ", ID_array[i]);
 				dxl_packetHandler->printRxPacketError(dxl_error);
 			}
 		}
 	}
-#endif
 
 
 //#######################################################################################
