@@ -60,6 +60,8 @@ class dynamixels
         int positionOffset[MAXIMUM_NUMBER_DYNAMIXELS];
         bool isMoving[MAXIMUM_NUMBER_DYNAMIXELS];
 
+        uint8_t goalCurrent[MAXIMUM_NUMBER_DYNAMIXELS];
+
         void setProfileVelocity(uint8_t desired_profile_velocity = STEP_VELOCITY_PROFILE);
         void enableTorqueALL(void);
         void disableTorqueALL(void);
