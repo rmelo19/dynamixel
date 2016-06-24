@@ -62,7 +62,7 @@ class dynamixels
 
         uint8_t goalCurrent[MAXIMUM_NUMBER_DYNAMIXELS];
 
-        void setProfileVelocity(uint8_t desired_profile_velocity = STEP_VELOCITY_PROFILE);
+        void setProfileVelocityALL(uint8_t desired_profile_velocity = STEP_VELOCITY_PROFILE);
         void enableTorqueALL(void);
         void disableTorqueALL(void);
         uint32_t readPosition(int index);

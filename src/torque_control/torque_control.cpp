@@ -17,16 +17,21 @@ int main(int argc, char* argv[])
   char deviceName2[13] = "/dev/ttyUSB1";
   dynamixels dxls2(deviceName2, 2);
   dxls2.printInfo(HEADER_INFO);
-
+  // setCurrentLimit(i, MAXIMUM_CURRENT);
   sleep(1); 
+  dxls2.setOperatingModeALL(TORQUE_CONTROL_MODE);
   dxls2.enableTorqueALL();
 
+  sleep(1);
   int j = 0;
   while(j != 1)
   {
     dxls2.setPosition(0, 200);
     dxls2.setPosition(1, 200);
-    dxls2.setOperatingModeALL(TORQUE_CONTROL_MODE);
+
+    dxls2.setCurrent(0, 20);
+    dxls2.setCurrent(0, 20);
+    
 
     while(1)
     {
